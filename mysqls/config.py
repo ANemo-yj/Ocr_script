@@ -1,5 +1,5 @@
 #  mysql配置
-host = '192.168.1.120'
+host = '120.0.0.1'
 port = 3306
 db = 'dc'
 user = 'dc'
