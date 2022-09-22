@@ -94,7 +94,6 @@ def set_value_to_OPC(tagID, value, ua_type,ime_str=None):
     # client = Client("opc.tcp://127.0.0.1:48408/freeopcua/server/")
     # client = Client("opc.tcp://172.16.102.105:48408/freeopcua/server/") #AWS 服务上地址
     # 通过tagID找到对应的tag，并写入值
-
     url = "opc.tcp://127.0.0.1:49320/freeopcua/server/"
     client = Client(url)
     try:

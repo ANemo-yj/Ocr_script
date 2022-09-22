@@ -198,6 +198,7 @@ def creat_camera(deviceList, nConnectionNum, log=True, log_path=getcwd()):
     :param log_path:          日志保存路径
     :return:                  相机实例和设备列表
     """
+
     # 创建相机实例
     cam = MvCamera()
     # 选择设备并创建句柄
@@ -353,11 +354,12 @@ def read_or_write_memory(cam, way="read"):
         cam.MV_CC_WriteMemory()
 
 
-# 判断相机是否处于连接状态(返回值如何获取)=================================
+# 判断相机是否处于连接/可访问状态(返回值如何获取)=================================
 def decide_divice_on_line(cam):
-    value = cam.MV_CC_IsDeviceConnected()
+    value = cam.MV_CC_IsDeviceConnected() # 是否是连接状态
+    # value = cam.MV_CC_IsDeviceAccessible()
     if value == True:
-        print("该设备在线 ！")
+        print("该设备已连接 ！")
     else:
         print("该设备已掉线 ！", value)
 
@@ -622,21 +624,21 @@ def main():
     identify_different_devices(deviceList)
     # 输入需要被连接的设备
     nConnectionNum = input_num_camera(deviceList)
+
     # 创建相机实例并创建句柄,(设置日志路径)
     cam, stDeviceList = creat_camera(deviceList, nConnectionNum, log=False)
-    # decide_divice_on_line(cam)  ==============
+    decide_divice_on_line(cam)
     # 打开设备
     open_device(cam)
     # # 设置缓存节点个数
     set_image_Node_num(cam, Num=10)
-
     # # 设置取流策略
     # set_grab_strategy(cam, grabstrategy=2, outputqueuesize=10)
     # 设置设备的一些参数
     set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=2) # 设置自动曝光
     # 获取设备的一些参数
-    get_value= get_Value(cam , param_type = "enum_value" , node_name = "ExposureAuto")
-    print(get_value)
+    get_value= get_Value(cam , param_type = "bool_value" , node_name = "GammaEnable")
+    print('获取参数为：',get_value)
     stdcall = input("回调方式取流显示请输入 0    主动取流方式显示请输入 1:")
     if int(stdcall) == 0:
         # 回调方式抓取图像
