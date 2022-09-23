@@ -7,6 +7,9 @@ from os import getcwd
 import cv2
 import msvcrt
 from ctypes import *
+from nb_log import LogManager
+
+from ocr import basedir
 
 sys.path.append("./MvImport")
 from MvCameraControl_class import *
@@ -217,7 +220,6 @@ def creat_camera(deviceList, nConnectionNum, log=True, log_path=getcwd()):
     elif log == False:
         # 创建句柄,不生成日志
         ret = cam.MV_CC_CreateHandleWithoutLog(stDeviceList)
-        print(1111)
         if ret != 0:
             print("create handle fail! ret[0x%x]" % ret)
             sys.exit()
@@ -356,7 +358,7 @@ def read_or_write_memory(cam, way="read"):
 
 # 判断相机是否处于连接/可访问状态(返回值如何获取)=================================
 def decide_divice_on_line(cam):
-    value = cam.MV_CC_IsDeviceConnected() # 是否是连接状态
+    value = cam.MV_CC_IsDeviceConnected()  # 是否是连接状态
     # value = cam.MV_CC_IsDeviceAccessible()
     if value == True:
         print("该设备已连接 ！")
@@ -408,36 +410,39 @@ def set_grab_strategy(cam, grabstrategy=0, outputqueuesize=1):
 
 
 # 显示图像
-def image_show(image, name):
+def image_show(image, name, num):
     image = cv2.resize(image, (1080, 960), interpolation=cv2.INTER_AREA)
     name = str(name)
+    files_path = os.path.join(basedir, 'output')
+    if not os.path.exists(files_path):
+        os.mkdir(files_path)
+    file_name = files_path + '/' + str(num) + '.jpg'
+    print(file_name)
     cv2.imshow(name, image)
-    cv2.imwrite("name.jpg", image)
+    cv2.imwrite(file_name, image)
     if cv2.waitKey(1) & 0xFF == ord('q'):
-        return False
-    else:
-        return True
+        return
 
     # 需要显示的图像数据转换
 
 
-def image_control(data, stFrameInfo):
+def image_control(data, stFrameInfo, receivedFrameCount):
     if stFrameInfo.enPixelType == 17301505:
         image = data.reshape((stFrameInfo.nHeight, stFrameInfo.nWidth))
 
-        image_show(image=image, name=stFrameInfo.nHeight)
+        image_show(image=image, name=stFrameInfo.nHeight, num=receivedFrameCount)
     elif stFrameInfo.enPixelType == 17301514:
         data = data.reshape(stFrameInfo.nHeight, stFrameInfo.nWidth, -1)
         image = cv2.cvtColor(data, cv2.COLOR_BAYER_GB2RGB)
-        image_show(image=image, name=stFrameInfo.nHeight)
+        image_show(image=image, name=stFrameInfo.nHeight, num=stFrameInfo.nFrameNum)
     elif stFrameInfo.enPixelType == 35127316:
         data = data.reshape(stFrameInfo.nHeight, stFrameInfo.nWidth, -1)
         image = cv2.cvtColor(data, cv2.COLOR_RGB2BGR)
-        image_show(image=image, name=stFrameInfo.nHeight)
+        image_show(image=image, name=stFrameInfo.nHeight, num=stFrameInfo.nFrameNum)
     elif stFrameInfo.enPixelType == 34603039:
         data = data.reshape(stFrameInfo.nHeight, stFrameInfo.nWidth, -1)
         image = cv2.cvtColor(data, cv2.COLOR_YUV2BGR_Y422)
-        image_show(image=image, name=stFrameInfo.nHeight)
+        image_show(image=image, name=stFrameInfo.nHeight, num=stFrameInfo.nFrameNum)
 
 
 # 主动图像采集
@@ -449,8 +454,11 @@ def access_get_image(cam, active_way="getImagebuffer"):
     """
     if active_way == "getImagebuffer":
         stOutFrame = MV_FRAME_OUT()
+        info = MV_NETTRANS_INFO()  # 获取网络传输信息
         memset(byref(stOutFrame), 0, sizeof(stOutFrame))
         while True:
+            a = cam.MV_GIGE_GetNetTransInfo(info)
+            receivedFrameCount = info.nNetRecvFrameCount  # 收到的帧率计数,nFrameNum(帧号)
             ret = cam.MV_CC_GetImageBuffer(stOutFrame, 10000)
             if None != stOutFrame.pBufAddr and 0 == ret and stOutFrame.stFrameInfo.enPixelType == 17301505:
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
@@ -460,7 +468,8 @@ def access_get_image(cam, active_way="getImagebuffer"):
                                    stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight)
                 data = np.frombuffer(pData, count=int(stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight),
                                      dtype=np.uint8)
-                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo)
+
+                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             elif None != stOutFrame.pBufAddr and 0 == ret and stOutFrame.stFrameInfo.enPixelType == 17301514:
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
                     stOutFrame.stFrameInfo.nWidth, stOutFrame.stFrameInfo.nHeight, stOutFrame.stFrameInfo.nFrameNum))
@@ -469,7 +478,7 @@ def access_get_image(cam, active_way="getImagebuffer"):
                                    stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight)
                 data = np.frombuffer(pData, count=int(stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight),
                                      dtype=np.uint8)
-                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo)
+                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             elif None != stOutFrame.pBufAddr and 0 == ret and stOutFrame.stFrameInfo.enPixelType == 35127316:
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
                     stOutFrame.stFrameInfo.nWidth, stOutFrame.stFrameInfo.nHeight, stOutFrame.stFrameInfo.nFrameNum))
@@ -479,7 +488,7 @@ def access_get_image(cam, active_way="getImagebuffer"):
                 data = np.frombuffer(pData,
                                      count=int(stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight * 3),
                                      dtype=np.uint8)
-                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo)
+                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             elif None != stOutFrame.pBufAddr and 0 == ret and stOutFrame.stFrameInfo.enPixelType == 34603039:
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
                     stOutFrame.stFrameInfo.nWidth, stOutFrame.stFrameInfo.nHeight, stOutFrame.stFrameInfo.nFrameNum))
@@ -489,13 +498,14 @@ def access_get_image(cam, active_way="getImagebuffer"):
                 data = np.frombuffer(pData,
                                      count=int(stOutFrame.stFrameInfo.nWidth * stOutFrame.stFrameInfo.nHeight * 2),
                                      dtype=np.uint8)
-                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo)
+                image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             else:
                 print("no data[0x%x]" % ret)
             nRet = cam.MV_CC_FreeImageBuffer(stOutFrame)
 
     elif active_way == "getoneframetimeout":
         stParam = MVCC_INTVALUE_EX()
+        info = MV_NETTRANS_INFO()  # 获取网络传输信息
         memset(byref(stParam), 0, sizeof(MVCC_INTVALUE_EX))
         ret = cam.MV_CC_GetIntValueEx("PayloadSize", stParam)
         if ret != 0:
@@ -506,12 +516,14 @@ def access_get_image(cam, active_way="getImagebuffer"):
         stFrameInfo = MV_FRAME_OUT_INFO_EX()
         memset(byref(stFrameInfo), 0, sizeof(stFrameInfo))
         while True:
+            a = cam.MV_GIGE_GetNetTransInfo(info)
+            receivedFrameCount = info.nNetRecvFrameCount  # 收到的帧率计数,nFrameNum(帧号)
             ret = cam.MV_CC_GetOneFrameTimeout(pData, nDataSize, stFrameInfo, 1000)
             if ret == 0:
                 print("get one frame: Width[%d], Height[%d], nFrameNum[%d] " % (
                     stFrameInfo.nWidth, stFrameInfo.nHeight, stFrameInfo.nFrameNum))
                 image = np.asarray(pData)
-                image_control(data=image, stFrameInfo=stFrameInfo)
+                image_control(data=image, stFrameInfo=stFrameInfo, receivedFrameCount=receivedFrameCount)
             else:
                 print("no data[0x%x]" % ret)
 
@@ -522,37 +534,41 @@ stFrameInfo = POINTER(MV_FRAME_OUT_INFO_EX)
 pData = POINTER(c_ubyte)
 FrameInfoCallBack = winfun_ctype(None, pData, stFrameInfo, c_void_p)
 
-
+n = -1
 def image_callback(pData, pFrameInfo, pUser):
     global img_buff
+    global n
     img_buff = None
+    receivedFrameCount = 1
     stFrameInfo = cast(pFrameInfo, POINTER(MV_FRAME_OUT_INFO_EX)).contents
     if stFrameInfo:
         print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
             stFrameInfo.nWidth, stFrameInfo.nHeight, stFrameInfo.nFrameNum))
     if img_buff is None and stFrameInfo.enPixelType == 17301505:
+        n += 1 # 记录调用次数
         img_buff = (c_ubyte * stFrameInfo.nWidth * stFrameInfo.nHeight)()
         cdll.msvcrt.memcpy(byref(img_buff), pData, stFrameInfo.nWidth * stFrameInfo.nHeight)
         data = np.frombuffer(img_buff, count=int(stFrameInfo.nWidth * stFrameInfo.nHeight), dtype=np.uint8)
-        image_control(data=data, stFrameInfo=stFrameInfo)
+        image_control(data=data, stFrameInfo=stFrameInfo, receivedFrameCount=n)
+        print('第{}张图片'.format(n))
         del img_buff
     elif img_buff is None and stFrameInfo.enPixelType == 17301514:
         img_buff = (c_ubyte * stFrameInfo.nWidth * stFrameInfo.nHeight)()
         cdll.msvcrt.memcpy(byref(img_buff), pData, stFrameInfo.nWidth * stFrameInfo.nHeight)
         data = np.frombuffer(img_buff, count=int(stFrameInfo.nWidth * stFrameInfo.nHeight), dtype=np.uint8)
-        image_control(data=data, stFrameInfo=stFrameInfo)
+        image_control(data=data, stFrameInfo=stFrameInfo, receivedFrameCount=receivedFrameCount)
         del img_buff
     elif img_buff is None and stFrameInfo.enPixelType == 35127316:
         img_buff = (c_ubyte * stFrameInfo.nWidth * stFrameInfo.nHeight * 3)()
         cdll.msvcrt.memcpy(byref(img_buff), pData, stFrameInfo.nWidth * stFrameInfo.nHeight * 3)
         data = np.frombuffer(img_buff, count=int(stFrameInfo.nWidth * stFrameInfo.nHeight * 3), dtype=np.uint8)
-        image_control(data=data, stFrameInfo=stFrameInfo)
+        image_control(data=data, stFrameInfo=stFrameInfo, receivedFrameCount=receivedFrameCount)
         del img_buff
     elif img_buff is None and stFrameInfo.enPixelType == 34603039:
         img_buff = (c_ubyte * stFrameInfo.nWidth * stFrameInfo.nHeight * 2)()
         cdll.msvcrt.memcpy(byref(img_buff), pData, stFrameInfo.nWidth * stFrameInfo.nHeight * 2)
         data = np.frombuffer(img_buff, count=int(stFrameInfo.nWidth * stFrameInfo.nHeight * 2), dtype=np.uint8)
-        image_control(data=data, stFrameInfo=stFrameInfo)
+        image_control(data=data, stFrameInfo=stFrameInfo, receivedFrameCount=receivedFrameCount)
         del img_buff
 
 
@@ -634,11 +650,14 @@ def main():
     set_image_Node_num(cam, Num=10)
     # # 设置取流策略
     # set_grab_strategy(cam, grabstrategy=2, outputqueuesize=10)
+    print('初始值：', get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate"))
+
     # 设置设备的一些参数
-    set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=2) # 设置自动曝光
-    # 获取设备的一些参数
-    get_value= get_Value(cam , param_type = "bool_value" , node_name = "GammaEnable")
-    print('获取参数为：',get_value)
+    set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=2)  # 设置自动曝光
+    set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=1)  # 设置采集帧率
+    # 获取设备的一些参数111111111111
+    get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate")
+    print('修改后参数为：', get_value)
     stdcall = input("回调方式取流显示请输入 0    主动取流方式显示请输入 1:")
     if int(stdcall) == 0:
         # 回调方式抓取图像
@@ -658,8 +677,6 @@ def main():
         access_get_image(cam, active_way="getImagebuffer")
         # 关闭设备与销毁句柄
         close_and_destroy_device(cam)
-
-
 
 
 if __name__ == "__main__":
