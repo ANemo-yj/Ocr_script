@@ -2,6 +2,8 @@
 
 import os
 import sys
+from time import time, sleep
+
 import numpy as np
 from os import getcwd
 import cv2
@@ -456,7 +458,8 @@ def access_get_image(cam, active_way="getImagebuffer"):
         stOutFrame = MV_FRAME_OUT()
         info = MV_NETTRANS_INFO()  # 获取网络传输信息
         memset(byref(stOutFrame), 0, sizeof(stOutFrame))
-        while True:
+        i = 0
+        while i < 11:
             a = cam.MV_GIGE_GetNetTransInfo(info)
             receivedFrameCount = info.nNetRecvFrameCount  # 收到的帧率计数,nFrameNum(帧号)
             ret = cam.MV_CC_GetImageBuffer(stOutFrame, 10000)
@@ -501,7 +504,9 @@ def access_get_image(cam, active_way="getImagebuffer"):
                 image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             else:
                 print("no data[0x%x]" % ret)
-            nRet = cam.MV_CC_FreeImageBuffer(stOutFrame)
+            i+=1
+            # close_and_destroy_device(cam)
+            # nRet = cam.MV_CC_FreeImageBuffer(stOutFrame)
 
     elif active_way == "getoneframetimeout":
         stParam = MVCC_INTVALUE_EX()
@@ -633,7 +638,7 @@ def start_grab_and_get_data_size(cam):
         sys.exit()
 
 
-def main():
+def haikang_sdk_main():
     # 枚举设备
     deviceList = enum_devices(device=0, device_way=False)
     # 判断不同类型设备
@@ -654,7 +659,7 @@ def main():
 
     # 设置设备的一些参数
     set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=2)  # 设置自动曝光
-    set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=1)  # 设置采集帧率
+    set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=5)  # 设置采集帧率
     # 获取设备的一些参数111111111111
     get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate")
     print('修改后参数为：', get_value)
@@ -668,6 +673,7 @@ def main():
         print("press a key to stop grabbing.")
         msvcrt.getch()
         print('按下了%s键' % (msvcrt.getch()))
+        print('继续执行')
         # 关闭设备与销毁句柄
         close_and_destroy_device(cam)
     elif int(stdcall) == 1:
@@ -680,4 +686,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    haikang_sdk_main()

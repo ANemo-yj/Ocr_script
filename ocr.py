@@ -103,11 +103,11 @@ def get_grcode(img_path):
 
 
 if __name__ == '__main__':
-    path = r"E:\烟叶标签照片\de09f1f7a7ef55c0e28b1948ff4b9dbb.jpg"
+    path = r"E:\烟叶标签照片\1994647c4277ca8a5ede505166aae8f0.jpg"
     # image = Image.open(path).convert('RGB')
-    results = ocr_result(path)
+    results = ocr_result(r'E:\\Ocr_Script\\output\\69.jpg')
     for i in results.get('result'):
-        print(i[1])
+        print(i)
     # vis_structure_result(path, result)
     # img_path = '../test/image/barcode_example.png'
     # print(get_grcode(path))

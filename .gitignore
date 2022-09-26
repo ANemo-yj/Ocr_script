@@ -9,6 +9,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+save_image_dir/
 output/
 build/
 log/
