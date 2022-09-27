@@ -7,7 +7,7 @@ import sys
 import time
 
 from ScreenImage import screen_main
-from ocr import basedir, ocr_result, get_grcode
+from ocr import basedir, ocr_result, get_grcode, postprocess
 from open_sdk import haikang_sdk_main
 
 
@@ -49,11 +49,24 @@ def saveImageAs(save_image_dir):
     shutil.copy(final_imgpath, new_img_path)
     return new_img_path
 
+def selectKeyValue(text):
+    # 筛选出固定的4-5箱号值
+    caseNum = [re.findall("[0-9]{4,5}", i) for i in text if '箱号' in i][0]
+    print('caseNum正则；', caseNum)
+    if not caseNum:
+        caseNo = postprocess(text)
+        if not caseNo:
+            caseNo = None
+        else:
+            caseNo = caseNo[0]
+    else:
+        caseNo = caseNum[0]
+    return caseNo
 
 if __name__ == '__main__':
     # 连接海康威视射线头
     # haikang_sdk_main()
-
+    # ------+++++++++++-------------
     # 筛选清晰度最高的图片
     imgPath = os.path.join(basedir, 'output')
     print(imgPath)
@@ -64,16 +77,21 @@ if __name__ == '__main__':
     if not os.path.exists(new_img_path):
         print('图片另存为失败')
         sys.exit()
+    # ------+++++++++++-------------
     # 调用ocr进行识别,优先检测是否有二维码
     res = get_grcode(new_img_path)
     print(res)
     if not res.get('result'):
-        res = ocr_result(final_imgpath)
-        print(response_results(res['result']))
-        #
+        res = ocr_result(new_img_path)
+        # print(response_results(res['result']))
+        # 将识别出来的文字进行关键字匹配，删选出箱号
+        text = [line[1][0] for line in res.get('result')]
+        print('text\n',text)
+        caseNo = selectKeyValue(text)
     else:
         caseNo = res['result'][-5:]
         if check(caseNo):
-            print(caseNo)
-
+            caseNo = caseNo
+    print('这是箱号',caseNo)
+    # ------+++++++++++-------------
 #  写入数据库/opcua服务器中

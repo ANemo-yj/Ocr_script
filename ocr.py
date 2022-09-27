@@ -1,8 +1,10 @@
 import os
+import re
+import sys
 import traceback
-
+import paddle.inference as paddle_infer
 from pyzbar import pyzbar
-from  logger.logging import logger
+from logger.logging import logger
 
 try:
     from PIL import Image
@@ -14,8 +16,17 @@ import time
 basedir = os.path.dirname(os.path.abspath(__file__))  # E:\PdFast
 pocr_name = os.path.join(basedir, 'pp_model')
 
-
-
+# 创建 config
+config = paddle_infer.Config()
+# 设置模型的文件夹路径
+config.set_model("model.pdmodel", "model.pdiparam")
+# 设置 CPU Blas 库线程数为 10
+config.set_cpu_math_library_num_threads(10)
+config.switch_ir_optim()
+config.enable_mkldnn()
+config.enable_memory_optim()
+# 通过 API 获取 CPU 信息 - 10
+print('一开始',config.cpu_math_library_num_threads())
 
 def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, rec=True, det=True, lan="ch"):
     t1 = time.time()
@@ -33,18 +44,22 @@ def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, re
             cls_model_dir=os.path.join(pocr_name, 'cls/ch_ppocr_mobile_v2.0_cls_slim_infer').replace('\\', '/'),
             # E:\PdFast\pp_model\cls\ch_ppocr_mobile_v2.0_cls_slim_infer',
             det_db_unclip_ratio=1.5,
+            max_text_length=15,
+            rec_batch_num=6,
+            # det = False,
+            # rec = False,
+
             lang=lan,
             show_log=False,
             enable_mkldnn=False,
             use_tensorrt=False,
-
             use_mp=True,  # 是否开启多进程预测
-            total_process_num=30,
+            total_process_num=6,
             cpu_threads=4,
             det_db_box_thresh=0.5,
             use_gpu=False,
-            # rec_algorithm='CRNN', #识别模型默认使用的rec_algorithm为SVTR_LCNet
-            det_limit_side_len=960
+            rec_algorithm='CRNN',  # 识别模型默认使用的rec_algorithm为SVTR_LCNet
+            det_limit_side_len=320,
         )  # need to run only once to download and load model into memory
         result = ocr.ocr(img_path)
         str_time = time.time() - t1
@@ -60,9 +75,9 @@ def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, re
         logger.error(trace_err)
 
 
-def vis_structure_result(image, result, save_folder='../output/'):
+def vis_structure_result(image, result, save_folder='./output/'):
     # 生成版面分析图片
-    font_path = '../test/font/仿宋_GB2312.ttf'  # './fonts/simfang.ttf' PaddleOCR下提供字体包
+    font_path = os.path.join(basedir, 'test/font/simsun.ttc').replace('\\', '/')  # './fonts/simfang.ttf' PaddleOCR下提供字体包
     images = Image.open(image).convert('RGB')
     boxes = [line[0] for line in result]
     txts = [line[1][0] for line in result]
@@ -71,7 +86,6 @@ def vis_structure_result(image, result, save_folder='../output/'):
     im_show = Image.fromarray(im_show)
     im_show.save(os.path.join(save_folder, 'result_struct.jpg'))
     return im_show
-
 
 
 def get_grcode(img_path):
@@ -102,13 +116,47 @@ def get_grcode(img_path):
         logger.error(trace_err)
 
 
+def postprocess(rec_res):
+    keys = ["加工单位", "烟叶名称", "毛重", "净重", "批次", "箱号",
+            "生产日期", "类别", "产地", "年份", "形态", "等级", "加工日期",
+            "品种", "含水率", "打叶员", "类型", "加工方式", "物料代码", "生产线"]
+    key_value = []
+    if len(rec_res) > 1:
+        for i in range(len(rec_res) - 1):
+            rec_str = rec_res[i]
+            for key in keys:
+                if rec_str[:2] in key:
+                    key_value.append([rec_str, rec_res[i + 1]])
+                    break
+    # key_value 匹配的key-value值
+    print('key-value', key_value)
+    carton = [i for i in key_value for j in i if '箱号' in j]
+    print('carno:', carton)
+    for _ in carton:
+        for j in _:
+            cartonNo = re.findall('[0-9]{4,5}', j)
+            if cartonNo:
+                return cartonNo
+
+
 if __name__ == '__main__':
     path = r"E:\烟叶标签照片\1994647c4277ca8a5ede505166aae8f0.jpg"
     # image = Image.open(path).convert('RGB')
-    results = ocr_result(r'E:\\Ocr_Script\\output\\69.jpg')
-    for i in results.get('result'):
-        print(i)
+    res = ocr_result(path)
+    # print(response_results(res['result']))
+    # 将识别出来的文字进行关键字匹配，删选出箱号
+    result = res.get('result')
+    if not result:
+        sys.exit()
+    txts = [line[1][0] for line in result]
+    print('text\n', txts)
+    caseNum = [re.findall("[0-9]{4,5}", i) for i in txts if '箱号' in i][0]
+    print('正则caseNum:', caseNum)
+    if not caseNum:
+        caseNo = postprocess(txts)
+    else:
+        caseNo = caseNum[0]
+    print('这是caseNo：', caseNo)
     # vis_structure_result(path, result)
     # img_path = '../test/image/barcode_example.png'
     # print(get_grcode(path))
-
