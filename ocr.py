@@ -26,7 +26,7 @@ config.switch_ir_optim()
 config.enable_mkldnn()
 config.enable_memory_optim()
 # 通过 API 获取 CPU 信息 - 10
-print('一开始',config.cpu_math_library_num_threads())
+print('默认开启CPU',config.cpu_math_library_num_threads())
 
 def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, rec=True, det=True, lan="ch"):
     t1 = time.time()
@@ -37,7 +37,7 @@ def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, re
             use_angle_cls=use_angle,
             rec_model_dir=os.path.join(pocr_name, 'rec/ch_PP-OCRv3_rec_infer').replace('\\', '/'),
             # r'E:\PdFast\pp_model\rec\ch_PP-OCRv3_rec_infer',
-            det_model_dir=os.path.join(pocr_name, 'det/ch_PP-OCRv3_det_infer').replace('\\', '/'),
+            det_model_dir=os.path.join(pocr_name, 'det/ch_ppocr_mobile_v2.0_det_prune_infer').replace('\\', '/'),
             # 'E:/PdFast/pp_model/det/ch_PP-OCRv3_det_infer',
             rec_char_dict_path=os.path.join(basedir, 'test/font/ppocr_keys_v1.txt').replace('\\', '/'),
             # 'E:/PdFast/test/font/ppocr_keys_v1.txt',
@@ -48,18 +48,17 @@ def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, re
             rec_batch_num=6,
             # det = False,
             # rec = False,
-
             lang=lan,
             show_log=False,
-            enable_mkldnn=False,
+            enable_mkldnn=True,
             use_tensorrt=False,
             use_mp=True,  # 是否开启多进程预测
-            total_process_num=6,
-            cpu_threads=4,
+            total_process_num=16,
+            cpu_threads=10,
             det_db_box_thresh=0.5,
             use_gpu=False,
-            rec_algorithm='CRNN',  # 识别模型默认使用的rec_algorithm为SVTR_LCNet
-            det_limit_side_len=320,
+            rec_algorithm='SVTR_LCNet',  # 识别模型默认使用的rec_algorithm为SVTR_LCNet，CRNN
+            det_limit_side_len=960,
         )  # need to run only once to download and load model into memory
         result = ocr.ocr(img_path)
         str_time = time.time() - t1
@@ -140,19 +139,26 @@ def postprocess(rec_res):
 
 
 if __name__ == '__main__':
-    path = r"E:\烟叶标签照片\1994647c4277ca8a5ede505166aae8f0.jpg"
+    path = r"E:\烟叶标签照片\0220930151108.png"
     # image = Image.open(path).convert('RGB')
+    print('二维码识别：', get_grcode(path))
     res = ocr_result(path)
+
     # print(response_results(res['result']))
     # 将识别出来的文字进行关键字匹配，删选出箱号
+    if not res:
+        sys.exit()
     result = res.get('result')
     if not result:
         sys.exit()
+    print('result:\n',result)
     txts = [line[1][0] for line in result]
     print('text\n', txts)
-    caseNum = [re.findall("[0-9]{4,5}", i) for i in txts if '箱号' in i][0]
+    caseNum = [re.findall("[0-9]{4,5}", i) for i in txts if '箱号' in i]
     print('正则caseNum:', caseNum)
-    if not caseNum:
+
+    if not caseNum[0]:
+        print('未使用正则')
         caseNo = postprocess(txts)
     else:
         caseNo = caseNum[0]

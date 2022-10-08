@@ -382,7 +382,6 @@ def set_image_Node_num(cam, Num=1):
     else:
         print("设置 SDK 内部图像缓存节点个数为 %d  ，设置成功!" % Num)
 
-
 # 设置取流策略
 def set_grab_strategy(cam, grabstrategy=0, outputqueuesize=1):
     """

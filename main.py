@@ -70,6 +70,7 @@ if __name__ == '__main__':
     # 筛选清晰度最高的图片
     imgPath = os.path.join(basedir, 'output')
     print(imgPath)
+    imgPath = r'E:\123'
     img_list = screen_main(imgPath)
     final_imgpath = [*max(img_list, key=lambda x: list(x.values())).keys()][0]  # 获取清晰清晰度最高的图片
     save_image_dir = os.path.join(basedir, 'save_image_dir')
@@ -80,18 +81,25 @@ if __name__ == '__main__':
     # ------+++++++++++-------------
     # 调用ocr进行识别,优先检测是否有二维码
     res = get_grcode(new_img_path)
-    print(res)
+    print('是否有二维码：',res)
     if not res.get('result'):
         res = ocr_result(new_img_path)
         # print(response_results(res['result']))
         # 将识别出来的文字进行关键字匹配，删选出箱号
+        print('匹配字符为：',res.get('result'))
         text = [line[1][0] for line in res.get('result')]
+        if not text:
+            print('未识别成功')
+            sys.exit()
         print('text\n',text)
         caseNo = selectKeyValue(text)
     else:
         caseNo = res['result'][-5:]
         if check(caseNo):
             caseNo = caseNo
-    print('这是箱号',caseNo)
+    print('这是箱号', caseNo)
     # ------+++++++++++-------------
 #  写入数据库/opcua服务器中
+    if not caseNo:
+        print('No does not exist.')
+        sys.exit()
