@@ -17,16 +17,7 @@ basedir = os.path.dirname(os.path.abspath(__file__))  # E:\PdFast
 pocr_name = os.path.join(basedir, 'pp_model')
 
 # 创建 config
-config = paddle_infer.Config()
-# 设置模型的文件夹路径
-config.set_model("model.pdmodel", "model.pdiparam")
-# 设置 CPU Blas 库线程数为 10
-config.set_cpu_math_library_num_threads(10)
-config.switch_ir_optim()
-config.enable_mkldnn()
-config.enable_memory_optim()
-# 通过 API 获取 CPU 信息 - 10
-print('默认开启CPU',config.cpu_math_library_num_threads())
+
 
 def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, rec=True, det=True, lan="ch"):
     t1 = time.time()
@@ -76,7 +67,8 @@ def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, re
 
 def vis_structure_result(image, result, save_folder='./output/'):
     # 生成版面分析图片
-    font_path = os.path.join(basedir, 'test/font/simsun.ttc').replace('\\', '/')  # './fonts/simfang.ttf' PaddleOCR下提供字体包
+    font_path = os.path.join(basedir, 'test/font/simsun.ttc').replace('\\',
+                                                                      '/')  # './fonts/simfang.ttf' PaddleOCR下提供字体包
     images = Image.open(image).convert('RGB')
     boxes = [line[0] for line in result]
     txts = [line[1][0] for line in result]
@@ -95,6 +87,7 @@ def get_grcode(img_path):
         # image = cv2.imread(img_path)
         # gray = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # 2、解析二维码中的数据
+        frame = frame.convert("L")
         barcodes = pyzbar.decode(frame)
         # 3、在数据中解析出二维码的data信息
         data = ''
@@ -111,7 +104,7 @@ def get_grcode(img_path):
             results['result'] = None
             return results
     except Exception:
-        trace_err = traceback.format_exc().replace("\n", "\\n")
+        trace_err = traceback.format_exc()
         logger.error(trace_err)
 
 
@@ -139,25 +132,23 @@ def postprocess(rec_res):
 
 
 if __name__ == '__main__':
-    path = r"E:\烟叶标签照片\0220930151108.png"
+    path = 'test/image/cut.png'
     # image = Image.open(path).convert('RGB')
-    print('二维码识别：', get_grcode(path))
+    print('二维码识别：', get_grcode('test/image/tiaoxinma.png'))
     res = ocr_result(path)
 
     # print(response_results(res['result']))
     # 将识别出来的文字进行关键字匹配，删选出箱号
+    result = res.get('result')
     if not res:
         sys.exit()
-    result = res.get('result')
-    if not result:
-        sys.exit()
-    print('result:\n',result)
+    print('result:\n', result)
     txts = [line[1][0] for line in result]
     print('text\n', txts)
     caseNum = [re.findall("[0-9]{4,5}", i) for i in txts if '箱号' in i]
     print('正则caseNum:', caseNum)
 
-    if not caseNum[0]:
+    if not (caseNum or caseNum[0]):
         print('未使用正则')
         caseNo = postprocess(txts)
     else:

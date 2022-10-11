@@ -32,3 +32,8 @@ python调用海康威视工业相机SDK主动/回调取流实例，官方SDK文�
 拉普拉斯-二阶导数计算Laplancian()
 取绝对值convertScaleAbs()
 显示结果
+
+#### removeBackground.py
+将图片二值化处理，边缘检测等方式将标签区域裁剪下来，降低背景干扰
+利用仿射变换/透视变换进行图片矫正，利用最大外切矩形面积判断 barcode_angle()
+图片倾斜矫正，适合图片中轮廓清晰部分shape_correction() 
