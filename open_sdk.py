@@ -2,14 +2,14 @@
 
 import os
 import sys
-from time import time, sleep
+
 
 import numpy as np
 from os import getcwd
 import cv2
 import msvcrt
 from ctypes import *
-from nb_log import LogManager
+
 
 from ocr import basedir
 
@@ -46,6 +46,7 @@ def enum_devices(device=0, device_way=False):
 # 判断不同类型设备
 def identify_different_devices(deviceList):
     # 判断不同类型设备，并输出相关信息
+    device_infos = {}
     for i in range(0, deviceList.nDeviceNum):
         mvcc_dev_info = cast(deviceList.pDeviceInfo[i], POINTER(MV_CC_DEVICE_INFO)).contents
         # 判断是否为网口相机
@@ -105,7 +106,7 @@ def identify_different_devices(deviceList):
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chUserDefinedName:
                 stUserDefinedName = stUserDefinedName + chr(per)
             print("用户自定义名称 : %s" % stUserDefinedName)
-
+            device_infos[stSerialNumber] = i
         # 判断是否为 USB 接口相机
         elif mvcc_dev_info.nTLayerType == MV_USB_DEVICE:
             print("\nU3V 设备序号e: [%d]" % i)
@@ -183,7 +184,7 @@ def identify_different_devices(deviceList):
             for per in mvcc_dev_info.SpecialInfo.stCamLInfo.chDeviceVersion:
                 stdeviceversion = stdeviceversion + chr(per)
             print("设备当前使用固件版本 : %s" % stdeviceversion)
-
+    print('设备序列号对应序号：\n', device_infos)
 
 # 输入需要连接的相机的序号
 def input_num_camera(deviceList):
@@ -208,6 +209,16 @@ def creat_camera(deviceList, nConnectionNum, log=True, log_path=getcwd()):
     cam = MvCamera()
     # 选择设备并创建句柄
     stDeviceList = cast(deviceList.pDeviceInfo[int(nConnectionNum)], POINTER(MV_CC_DEVICE_INFO)).contents
+    for per in stDeviceList.SpecialInfo.stGigEInfo.chSerialNumber:
+        stSerialNumber = stSerialNumber + chr(per)
+    print('该设备序列号为：',stSerialNumber)
+    out_path = os.path.join(basedir,'output')
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+    global camera_num_path
+    camera_num_path = os.path.join(out_path,stSerialNumber)
+    if not os.path.exists(camera_num_path):
+        os.makedirs(camera_num_path)
     if log == True:
         ret = cam.MV_CC_SetSDKLogPath(log_path)
         print(log_path)
@@ -414,10 +425,9 @@ def set_grab_strategy(cam, grabstrategy=0, outputqueuesize=1):
 def image_show(image, name, num):
     image = cv2.resize(image, (1080, 960), interpolation=cv2.INTER_AREA)
     name = str(name)
-    files_path = os.path.join(basedir, 'output')
-    if not os.path.exists(files_path):
-        os.mkdir(files_path)
-    file_name = files_path + '/' + str(num) + '.jpg'
+    if os.path.exists(camera_num_path):
+        os.makedirs(camera_num_path)
+    file_name = camera_num_path + '/' + str(num) + '.jpg'
     print(file_name)
     cv2.imshow(name, image)
     cv2.imwrite(file_name, image)
@@ -654,25 +664,31 @@ def haikang_sdk_main():
     set_image_Node_num(cam, Num=10)
     # # 设置取流策略
     # set_grab_strategy(cam, grabstrategy=2, outputqueuesize=10)
-    print('初始值：', get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate"))
+    # print('初始值：', get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate"))
 
     # 设置设备的一些参数
-    set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=2)  # 设置自动曝光
-    set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=5)  # 设置采集帧率
+
+    # set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=5)  # 设置采集帧率
+    set_Value(cam, param_type="enum_value", node_name="AcquisitionMode", node_value=2)
+    set_Value(cam, param_type="enum_value", node_name="TriggerMode", node_value=1)
+    set_Value(cam, param_type="enum_value", node_name="TriggerSource", node_value=0)
+    set_Value(cam, param_type="enum_value", node_name="TriggerDelay", node_value=0)
+    set_Value(cam, param_type="enum_value", node_name="LineDebouncerTime", node_value=10)
+    set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=0)  # 设置关闭自动曝光
+    set_Value(cam, param_type="float_value", node_name="ExposureTime", node_value=9476)  # 设置爆光时间
     # 获取设备的一些参数111111111111
-    get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate")
-    print('修改后参数为：', get_value)
-    stdcall = input("回调方式取流显示请输入 0    主动取流方式显示请输入 1:")
+    get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionMode")
+    print('修改后AcquisitionMode参数为：', get_value)
+    # stdcall = input("回调方式取流显示请输入 0    主动取流方式显示请输入 1:")
+    stdcall = 0
     if int(stdcall) == 0:
         # 回调方式抓取图像
         call_back_get_image(cam)
         # 开启设备取流
         start_grab_and_get_data_size(cam)
         # 当使用 回调取流时，需要在此处添加
-        print("press a key to stop grabbing.")
+        print("按下任意键取消将采集/press a key to stop grabbing.")
         msvcrt.getch()
-        print('按下了%s键' % (msvcrt.getch()))
-        print('继续执行')
         # 关闭设备与销毁句柄
         close_and_destroy_device(cam)
     elif int(stdcall) == 1:

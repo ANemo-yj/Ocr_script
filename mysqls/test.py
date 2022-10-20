@@ -1,8 +1,9 @@
 # -*- coding:utf-8 -*-
-
+import warnings
+warnings.filterwarnings("ignore")
 from mysqls.mysql import ConnectMysql
 
-sql ='''INSERT INTO redrycompany.gs_prod_box_tag_img (PK_PROD_BOX_TAG_IMG, 
+sql = '''INSERT INTO redrycompany.gs_prod_box_tag_img (PK_PROD_BOX_TAG_IMG, 
 SRC_IMG, CUT_IMG, SMALL_IMG, CODE_INFO, FACTORY_BOX_CODE,
  INDUSTRY_BOX_NO, IMG_INFO, BUSINESS_YEAR, ORG_UNIQUE_CD,
   ORG_NAME, SEND_TIME, SEND_STATE, CREATE_TIME, MODIFY_TIME, DATA_STATE) 

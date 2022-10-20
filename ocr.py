@@ -1,10 +1,11 @@
+# encoding: utf-8
 import os
 import re
 import sys
 import traceback
 import paddle.inference as paddle_infer
 from pyzbar import pyzbar
-from logger.logging import logger
+from logger.logging import logger, MyLogger
 
 try:
     from PIL import Image
@@ -16,7 +17,7 @@ import time
 basedir = os.path.dirname(os.path.abspath(__file__))  # E:\PdFast
 pocr_name = os.path.join(basedir, 'pp_model')
 
-# 创建 config
+my_logloggerger = MyLogger().get_logger()
 
 
 def ocr_result(img_path='./test/image/chenjun.jpg', use_angle=True, cls=True, rec=True, det=True, lan="ch"):
@@ -87,7 +88,7 @@ def get_grcode(img_path):
         # image = cv2.imread(img_path)
         # gray = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         # 2、解析二维码中的数据
-        frame = frame.convert("L")
+        # frame = frame.convert("L")
         barcodes = pyzbar.decode(frame)
         # 3、在数据中解析出二维码的data信息
         data = ''
@@ -132,9 +133,9 @@ def postprocess(rec_res):
 
 
 if __name__ == '__main__':
-    path = 'test/image/cut.png'
+    path = 'test/image/bianhuan.png'
     # image = Image.open(path).convert('RGB')
-    print('二维码识别：', get_grcode('test/image/tiaoxinma.png'))
+    print('二维码识别：', get_grcode(path))
     res = ocr_result(path)
 
     # print(response_results(res['result']))
@@ -142,7 +143,8 @@ if __name__ == '__main__':
     result = res.get('result')
     if not res:
         sys.exit()
-    print('result:\n', result)
+    print('result:'
+          '\n', result)
     txts = [line[1][0] for line in result]
     print('text\n', txts)
     caseNum = [re.findall("[0-9]{4,5}", i) for i in txts if '箱号' in i]

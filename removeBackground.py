@@ -15,13 +15,13 @@ def process(img):
     :return:
     '''
     img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # img_gray = cv2.GaussianBlur(img_gray, (3, 3), 0)  # 滤波降噪
-    # _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY) # 固定阈值处理
-    thresh = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 5, 3)  # 自适应阈值处理
+    img_gray = cv2.GaussianBlur(img_gray, (3, 3), 0)  # 滤波降噪
+    _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY) # 固定阈值处理
+    # thresh = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)  # 自适应阈值处理
 
-    img_canny = cv2.Canny(thresh, 0, 0)
+    img_canny = cv2.Canny(img_gray, 50, 30)
 
-    # cv2.imshow("dst2", img_canny)
+    cv2.imshow("dst2", img_canny)
     img_dilate = cv2.dilate(img_canny, None, iterations=7)
     return cv2.erode(img_dilate, None, iterations=7)
 
@@ -62,7 +62,7 @@ def barcode_angle(image):
     im_edge = cv2.Canny(im_gray, 30, 50)  # 边缘检测
     kernel = np.ones(shape=[3, 3], dtype=np.uint8)
     im_edge = cv2.dilate(im_edge, kernel, iterations=1)  # 膨胀处理
-    cv2.imshow('im_edge', im_edge)  # 显示边缘检测结果
+    # cv2.imshow('im_edge', im_edge)  # 显示边缘检测结果
     # cv2.waitKey(0)
     contours, hierarchy = cv2.findContours(im_edge, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # 提取轮廓
     rect, area = None, 0  # 找到的最大四边形及其面积
@@ -79,18 +79,39 @@ def barcode_angle(image):
             if a > area:
                 area = a
                 rect = (lt, lb, rt, rb)
+    print('\t左上角：(%d,%d)' % (rect[0][0], rect[0][1]))
+    print('\t左下角：(%d,%d)' % (rect[1][0], rect[1][1]))
+    print('\t右上角：(%d,%d)' % (rect[2][0], rect[2][1]))
+    print('\t右下角：(%d,%d)' % (rect[3][0], rect[3][1]))
+    w1 = rect[2][0] - rect[0][0]
+    w2 = rect[3][0] - rect[1][0]
+    h1 = rect[1][1] - rect[0][1]
+    h2 = rect[3][1] - rect[2][1]
+    print('图像长', w1,w2)
+    print('图像宽', h1,h2)
     im = np.copy(image)
     for p in rect:
         im = cv2.line(im, (p[0] - 10, p[1]), (p[0] + 10, p[1]), (0, 0, 255), 1)
         im = cv2.line(im, (p[0], p[1] - 10), (p[0], p[1] + 10), (0, 0, 255), 1)
     lt, lb, rt, rb = rect
-    pts1 = np.float32([(0, 0), (0, 960), (960, 0), (960, 960)])  # 预期的棋盘四个角的坐标
+    pts1 = np.float32([(0, 0), (0, h1), (w1, 0), (w1, h1)])  # 预期的棋盘四个角的坐标
     pts2 = np.float32([lt, lb, rt, rb])  # 当前找到的棋盘四个角的坐标
+
     m = cv2.getPerspectiveTransform(pts2, pts1)  # 生成透视矩阵
-    board_gray = cv2.warpPerspective(im_gray, m, (960, 960))  # 对灰度图执行透视变换
-    board_bgr = cv2.warpPerspective(image, m, (960, 960))  # 对彩色图执行透视变换
-    # cv2.imwrite('./test/image/bianhuan.png',board_bgr)
-    cv2.imshow('board_bgr', board_bgr)
+    board_gray = cv2.warpPerspective(im_gray, m, (800, 800))  # 对灰度图执行透视变换
+    board_bgr = cv2.warpPerspective(image, m, (w1, h1))  # 对彩色图执行透视变换
+    img_image = Image.fromarray(np.uint8(board_bgr))  # 转换为Image对象
+    # imgE = Image.open(img_image)
+    imgEH = ImageEnhance.Contrast(img_image)  # 增加对比度
+    img1 = imgEH.enhance(1.3)
+    enh_sha = ImageEnhance.Sharpness(img1)  # 锐度增强
+    image_sharped = enh_sha.enhance(3.0)
+    gray1 = image_sharped.convert("L")
+    gary2 = gray1.filter(ImageFilter.DETAIL)  # 创建滤波器，使用不同的卷积核
+    gary3 = gary2.point(lambda i: i * 0.9)  # 图像点运算
+    gary3_cv = np.array(gary3)
+    cv2.imwrite('./test/image/bianhuan.png',cv2.resize(gary3_cv, (0, 0), fx=2, fy=2, interpolation=cv2.INTER_AREA))
+    cv2.imshow('board_bgr', np.array(gary3))
 
     cv2.imshow('go', im)
     cv2.waitKey(0)
@@ -154,11 +175,15 @@ def shape_correction(img):
 
 
 if __name__ == '__main__':
-    img = cv2.imread(r"E:\123\Image_20220928113119934.bmp")
+    img = cv2.imread(r"E:\123\Image_20220928112647570.bmp")
+    # 读取中文路径
+    ch_img = cv2.imdecode(np.fromfile("E:\烟叶标签照片\入库 (00K42994168)\Image_20221019104807882.bmp", dtype=np.uint8), -1)
+    cv_img = cv2.cvtColor(ch_img, cv2.COLOR_RGB2BGR)
     # img = cv2.resize(img, (1080, int(img.shape[0]*1080/img.shape[1])), interpolation=cv2.INTER_AREA)
-    img = cv2.resize(img, (0, 0), fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA) #  缩小至原图片的四分之一大小
-    # get_contours(img)x
-    # print('介是嘛：', barcode_angle(cv2.imread('./test/image/paper.jpeg')))
-    shape_correction(cv2.imread('./test/image/0220930151108.png'))
-    # cv2.imshow("img_processed", img)
+    img = cv2.resize(cv_img, (0, 0), fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA) #  缩小至原图片的四分之一大小
+    # get_contours(img)
+
+    print('介是嘛：', barcode_angle(img))
+    # shape_correction(cv2.imread('./test/image/cut.png'))
+    cv2.imshow("img_processed", img)
     cv2.waitKey(0)
