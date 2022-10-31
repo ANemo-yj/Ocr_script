@@ -49,6 +49,7 @@ def callback(request, results):  # 回调函数，用于取回结果
 
 
 def screen_main(imgPath):
+    '''筛选清晰度最高的图片'''
     filelist = os.listdir(imgPath)
     imgs_path = [os.path.join(imgPath, i) for i in filelist if i.endswith(('.png', 'jpg', 'bmp'))]
 

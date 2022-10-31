@@ -1,5 +1,6 @@
 # coding:utf-8
-
+import json
+import msvcrt
 import os
 import re
 import shutil
@@ -8,7 +9,8 @@ import time
 
 from ScreenImage import screen_main
 from ocr import basedir, ocr_result, get_grcode, postprocess
-from open_sdk import haikang_sdk_main
+from open_sdk import haikang_sdk_main, enum_devices, identify_different_devices, input_num_camera, creat_camera, \
+    set_Value, open_device, call_back_get_image, start_grab_and_get_data_size, close_and_destroy_device
 
 
 def response_results(result):
@@ -55,6 +57,7 @@ def selectKeyValue(text):
     print('caseNum正则；', caseNum)
     if not caseNum:
         caseNo = postprocess(text)
+
         if not caseNo:
             caseNo = None
         else:
@@ -65,41 +68,38 @@ def selectKeyValue(text):
 
 if __name__ == '__main__':
     # 连接海康威视射线头
-    # haikang_sdk_main()
-    # ------+++++++++++-------------
-    # 筛选清晰度最高的图片
-    imgPath = os.path.join(basedir, 'output')
-    print(imgPath)
-    imgPath = r'E:\123'
-    img_list = screen_main(imgPath)
-    final_imgpath = [*max(img_list, key=lambda x: list(x.values())).keys()][0]  # 获取清晰清晰度最高的图片
-    save_image_dir = os.path.join(basedir, 'save_image_dir')
-    new_img_path = saveImageAs(save_image_dir)
-    if not os.path.exists(new_img_path):
-        print('图片另存为失败')
-        sys.exit()
-    # ------+++++++++++-------------
-    # 调用ocr进行识别,优先检测是否有二维码
-    res = get_grcode(new_img_path)
-    print('是否有二维码：',res)
-    if not res.get('result'):
-        res = ocr_result(new_img_path)
-        # print(response_results(res['result']))
-        # 将识别出来的文字进行关键字匹配，删选出箱号
-        print('匹配字符为：',res.get('result'))
-        text = [line[1][0] for line in res.get('result')]
-        if not text:
-            print('未识别成功')
-            sys.exit()
-        print('text\n',text)
-        caseNo = selectKeyValue(text)
-    else:
-        caseNo = res['result'][-5:]
-        if check(caseNo):
-            caseNo = caseNo
-    print('这是箱号', caseNo)
-    # ------+++++++++++-------------
-#  写入数据库/opcua服务器中
-    if not caseNo:
-        print('No does not exist.')
-        sys.exit()
+    deviceList = enum_devices(device=0, device_way=False)
+    # 判断不同类型设备
+    device_infos = identify_different_devices(deviceList)
+    # 输入需要被连接的设备
+    nConnectionNum = input_num_camera(deviceList)
+    global camera_dir_path
+    camera_dir_path = './Output'
+    # 创建相机实例并创建句柄,(设置日志路径)
+    cam, stDeviceList, camera_dir_path = creat_camera(deviceList, nConnectionNum, device_infos, log=False,
+                                                      log_path=os.getcwd())
+    # 打开设备
+    open_device(cam)
+    # 设置设备的一些参数
+    xuelie_num = device_infos.get(str(nConnectionNum)).get('EquipmentSerialNumber')
+    with open('Config/HaiKan_profile.json', 'r', encoding='utf-8') as fp:
+        json_data = json.load(fp)
+        for node_param in json_data[xuelie_num]:
+            if node_param != '//':
+                tp = json_data[xuelie_num][node_param]['type']
+                value = json_data[xuelie_num][node_param]['value']
+                if node_param == 'ExposureAuto' and value != 0:
+                    set_Value(cam, param_type=tp, node_name=node_param, node_value=value)
+    # 创建图片保存路径
+    if not os.path.exists(camera_dir_path):
+        os.mkdir(camera_dir_path)
+    # 回调方式抓取图像
+    call_back_get_image(cam)
+    # 开启设备取流
+    start_grab_and_get_data_size(cam)
+    # 当使用 回调取流时，需要在此处添加
+    print("按下任意键取消将采集/press a key to stop grabbing.")
+    msvcrt.getch()
+    # 关闭设备与销毁句柄
+    close_and_destroy_device(cam)
+

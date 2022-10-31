@@ -1,4 +1,5 @@
 #coding: utf-8
+import datetime
 import os
 import time
 import sys
@@ -34,8 +35,12 @@ class MyLogger:
                                "{process.name} | "  # 进程名
                                "{thread.name} | "  # 进程名
                                '{module}.{function}:{line} - {level} -{message}',  # 模块名.方法名:行号
-                        rotation="10 MB")
+                        )
 
+        # self.logger.add(log_file_path,
+        #                 retention=datetime.timedelta(hours=0.1)
+        #                 )
+        # self.logger.add(log_file_path,compression='zip')
     def get_logger(self):
         return self.logger
 

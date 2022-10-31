@@ -1,8 +1,9 @@
-# coding: utf-8
-
+# -- coding: utf-8 --
+import json
 import os
+import re
 import sys
-
+import time
 
 import numpy as np
 from os import getcwd
@@ -10,8 +11,11 @@ import cv2
 import msvcrt
 from ctypes import *
 
+from PIL import Image
+from loguru import logger
 
-from ocr import basedir
+from ocr import basedir, ocr_result, postprocess, get_grcode, getFirst
+from removeBackground import barcode_angle
 
 sys.path.append("./MvImport")
 from MvCameraControl_class import *
@@ -46,8 +50,11 @@ def enum_devices(device=0, device_way=False):
 # 判断不同类型设备
 def identify_different_devices(deviceList):
     # 判断不同类型设备，并输出相关信息
+    # global device_infos
     device_infos = {}
+    xuliehao = {}
     for i in range(0, deviceList.nDeviceNum):
+        infos = {}
         mvcc_dev_info = cast(deviceList.pDeviceInfo[i], POINTER(MV_CC_DEVICE_INFO)).contents
         # 判断是否为网口相机
         if mvcc_dev_info.nTLayerType == MV_GIGE_DEVICE:
@@ -56,6 +63,7 @@ def identify_different_devices(deviceList):
             strModeName = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chModelName:
                 strModeName = strModeName + chr(per)
+            infos['CurrentDeviceModelName'] = strModeName.strip(b'\x00'.decode())
             print("当前设备型号名: %s" % strModeName)
             # 获取当前设备 IP 地址
             nip1_1 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24)
@@ -63,50 +71,59 @@ def identify_different_devices(deviceList):
             nip1_3 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8)
             nip1_4 = (mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff)
             print("当前 ip 地址: %d.%d.%d.%d" % (nip1_1, nip1_2, nip1_3, nip1_4))
+            infos['CurrentIPAddress'] = (nip1_1, nip1_2, nip1_3, nip1_4)
             # 获取当前子网掩码
             nip2_1 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentSubNetMask & 0xff000000) >> 24)
             nip2_2 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentSubNetMask & 0x00ff0000) >> 16)
             nip2_3 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentSubNetMask & 0x0000ff00) >> 8)
             nip2_4 = (mvcc_dev_info.SpecialInfo.stGigEInfo.nCurrentSubNetMask & 0x000000ff)
             print("当前子网掩码 : %d.%d.%d.%d" % (nip2_1, nip2_2, nip2_3, nip2_4))
+            infos['CurrentSubnetMask'] = (nip2_1, nip2_2, nip2_3, nip2_4)
             # 获取当前网关
             nip3_1 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nDefultGateWay & 0xff000000) >> 24)
             nip3_2 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nDefultGateWay & 0x00ff0000) >> 16)
             nip3_3 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nDefultGateWay & 0x0000ff00) >> 8)
             nip3_4 = (mvcc_dev_info.SpecialInfo.stGigEInfo.nDefultGateWay & 0x000000ff)
             print("当前网关 : %d.%d.%d.%d" % (nip3_1, nip3_2, nip3_3, nip3_4))
+            infos['Gateway'] = (nip2_1, nip2_2, nip2_3, nip2_4)
             # 获取网口 IP 地址
             nip4_1 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nNetExport & 0xff000000) >> 24)
             nip4_2 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nNetExport & 0x00ff0000) >> 16)
             nip4_3 = ((mvcc_dev_info.SpecialInfo.stGigEInfo.nNetExport & 0x0000ff00) >> 8)
             nip4_4 = (mvcc_dev_info.SpecialInfo.stGigEInfo.nNetExport & 0x000000ff)
             print("当前连接的网口 IP 地址 : %d.%d.%d.%d" % (nip4_1, nip4_2, nip4_3, nip4_4))
+            infos['IpdAddressCurrentConnection'] = (nip4_1, nip4_2, nip4_3, nip4_4)
             # 获取制造商名称
             strmanufacturerName = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chManufacturerName:
                 strmanufacturerName = strmanufacturerName + chr(per)
             print("制造商名称 : %s" % strmanufacturerName)
+            infos['ManufacturerName'] = strmanufacturerName.strip(b'\x00'.decode())
             # 获取设备版本
             stdeviceversion = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chDeviceVersion:
                 stdeviceversion = stdeviceversion + chr(per)
             print("设备当前使用固件版本 : %s" % stdeviceversion)
+            infos['DeviceUSESCurrentFirmwareVersion'] = stdeviceversion.strip(b'\x00'.decode())
             # 获取制造商的具体信息
             stManufacturerSpecificInfo = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chManufacturerSpecificInfo:
                 stManufacturerSpecificInfo = stManufacturerSpecificInfo + chr(per)
             print("设备制造商的具体信息 : %s" % stManufacturerSpecificInfo)
+            infos['DetailsTheEquipmentManufacturer'] = stManufacturerSpecificInfo.strip(b'\x00'.decode())
             # 获取设备序列号
             stSerialNumber = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chSerialNumber:
                 stSerialNumber = stSerialNumber + chr(per)
             print("设备序列号 : %s" % stSerialNumber)
+            infos['EquipmentSerialNumber'] = stSerialNumber.strip(b'\x00'.decode())
+            xuliehao[i] = stSerialNumber.strip(b'\x00'.decode())
             # 获取用户自定义名称
             stUserDefinedName = ""
             for per in mvcc_dev_info.SpecialInfo.stGigEInfo.chUserDefinedName:
                 stUserDefinedName = stUserDefinedName + chr(per)
             print("用户自定义名称 : %s" % stUserDefinedName)
-            device_infos[stSerialNumber] = i
+            infos['User-definedName'] = stUserDefinedName.strip(b'\x00'.decode())
         # 判断是否为 USB 接口相机
         elif mvcc_dev_info.nTLayerType == MV_USB_DEVICE:
             print("\nU3V 设备序号e: [%d]" % i)
@@ -184,7 +201,11 @@ def identify_different_devices(deviceList):
             for per in mvcc_dev_info.SpecialInfo.stCamLInfo.chDeviceVersion:
                 stdeviceversion = stdeviceversion + chr(per)
             print("设备当前使用固件版本 : %s" % stdeviceversion)
+        device_infos[str(i)] = infos
     print('设备序列号对应序号：\n', device_infos)
+    print('序列号', xuliehao)
+    return device_infos
+
 
 # 输入需要连接的相机的序号
 def input_num_camera(deviceList):
@@ -196,29 +217,32 @@ def input_num_camera(deviceList):
 
 
 # 创建相机实例并创建句柄,(设置日志路径)
-def creat_camera(deviceList, nConnectionNum, log=True, log_path=getcwd()):
+def creat_camera(deviceList, nConnectionNum, device_infos, log=True, log_path=getcwd()):
     """
     :param deviceList:        设备列表
     :param nConnectionNum:    需要连接的设备序号
+    :param device_infos:      需要连接的设备信息
     :param log:               是否创建日志
     :param log_path:          日志保存路径
     :return:                  相机实例和设备列表
     """
+    # 创建保存文件夹
+    out_path = os.path.join(basedir, 'Output')
+    if not os.path.exists(out_path):
+        os.mkdir(out_path)
+    device_info = device_infos.get(str(nConnectionNum))
+    serial = device_info.get('EquipmentSerialNumber', nConnectionNum)  # 无序列号以序号命名
 
+    camera_dir_name = time.strftime('%Y-%m-%d', time.localtime(time.time())) + '_' + str(serial)
+    camera_dir_path = os.path.join(out_path, camera_dir_name)
+    if not os.path.exists(camera_dir_path):
+        os.mkdir(camera_dir_path)
     # 创建相机实例
     cam = MvCamera()
     # 选择设备并创建句柄
     stDeviceList = cast(deviceList.pDeviceInfo[int(nConnectionNum)], POINTER(MV_CC_DEVICE_INFO)).contents
-    for per in stDeviceList.SpecialInfo.stGigEInfo.chSerialNumber:
-        stSerialNumber = stSerialNumber + chr(per)
-    print('该设备序列号为：',stSerialNumber)
-    out_path = os.path.join(basedir,'output')
-    if not os.path.exists(out_path):
-        os.makedirs(out_path)
-    global camera_num_path
-    camera_num_path = os.path.join(out_path,stSerialNumber)
-    if not os.path.exists(camera_num_path):
-        os.makedirs(camera_num_path)
+    # if not os.path.exists(camera_num_path):
+    #     os.makedirs(camera_num_path)
     if log == True:
         ret = cam.MV_CC_SetSDKLogPath(log_path)
         print(log_path)
@@ -236,7 +260,7 @@ def creat_camera(deviceList, nConnectionNum, log=True, log_path=getcwd()):
         if ret != 0:
             print("create handle fail! ret[0x%x]" % ret)
             sys.exit()
-    return cam, stDeviceList
+    return cam, stDeviceList, camera_dir_path
 
 
 # 打开设备
@@ -333,6 +357,7 @@ def set_Value(cam, param_type="int_value", node_name="PayloadSize", node_value=N
         if ret != 0:
             print("设置 float 型数据节点 %s 失败 ! 报错码 ret[0x%x]" % (node_name, ret))
             sys.exit()
+
         print("设置 float 型数据节点 %s 成功 ！设置值为 %s !" % (node_name, node_value))
 
     elif param_type == "enum_value":
@@ -393,6 +418,7 @@ def set_image_Node_num(cam, Num=1):
     else:
         print("设置 SDK 内部图像缓存节点个数为 %d  ，设置成功!" % Num)
 
+
 # 设置取流策略
 def set_grab_strategy(cam, grabstrategy=0, outputqueuesize=1):
     """
@@ -420,27 +446,67 @@ def set_grab_strategy(cam, grabstrategy=0, outputqueuesize=1):
         else:
             print("设置 输出缓存个数为 %d  ，设置成功!" % outputqueuesize)
 
+def letterbox_image(image, size):
+    # 对图片进行resize，使图片不失真。在空缺的地方进行padding
+    iw, ih = image.size
+    w, h = size
+    scale = min(w/iw, h/ih)
+    nw = int(iw*scale)
+    nh = int(ih*scale)
+    image = image.resize((nw,nh), Image.BICUBIC)
+    new_image = Image.new('RGB', size, (128,128,128))
+    new_image.paste(image, ((w-nw)//2, (h-nh)//2))
+    return new_image
 
 # 显示图像
-def image_show(image, name, num):
-    image = cv2.resize(image, (1080, 960), interpolation=cv2.INTER_AREA)
-    name = str(name)
-    if os.path.exists(camera_num_path):
-        os.makedirs(camera_num_path)
-    file_name = camera_num_path + '/' + str(num) + '.jpg'
-    print(file_name)
-    cv2.imshow(name, image)
+def image_show(images, name, num):
+    img = Image.fromarray(images.astype('uint')).convert('RGB')
+    image = letterbox_image(img, (1980, 1080))
+    image = np.array(image)
+    save_dir_path = camera_dir_path
+    if not os.path.exists(save_dir_path):
+        os.mkdir(save_dir_path)
+    file_name = save_dir_path + '/' + str(num) + '.jpg'
     cv2.imwrite(file_name, image)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        return
+    logger.info('图片保存至:',file_name)
+    try:
+        ps_image_dir = os.path.join(basedir, 'ps_image_dir')
+        if not os.path.exists(ps_image_dir):
+            os.mkdir(ps_image_dir)
+        save_ps_image = os.path.join(ps_image_dir, os.path.split(save_dir_path)[0])
+        if not os.path.exists(save_ps_image):
+            os.mkdir(save_ps_image)
+        ps_img = barcode_angle(image, num, save_ps_image)
+        if ps_img:
+            code128 = get_grcode(ps_img)
+            code = code128.get('result', None)
+            if code:
+                caseNo = code[:-5]
+                The_txts = '文件名:{filename} 这是caseNo: {caseNo}'.format(filename=ps_img, caseNo=caseNo)
+                logger.info('文件名{filename} 二维码识别结果{result}'.format(filename=ps_img, caseNo=code128))
+            else:
+                res = ocr_result(ps_img)
+                result = res.get('result', None)
+                txts = [line[1][0] for line in result]
+                f_name = os.path.join(basedir, os.path.split(camera_dir_path)[-1] + '.txt') # 写入文件
+                caseNum = [re.findall("[0-9]{1,5}", i) for i in txts if '箱号' in i]
+                print('正则caseNum:', caseNum)
+                if not (caseNum or caseNum[0]):
+                    caseNo = postprocess(txts)
+                else:
+                    caseNo = caseNum[0]
+                print('箱号caseNo为:', caseNo)
+                The_txts ='文件名:{filename} 这是caseNo: {caseNo}'.format(filename=ps_img, caseNo=getFirst(caseNo))
+            with open(f_name, mode='a') as f:
+                f.write(str(The_txts))
+                f.write("\n")
+    except Exception as e:
+        print(e)
 
-    # 需要显示的图像数据转换
-
-
+# 需要显示的图像数据转换
 def image_control(data, stFrameInfo, receivedFrameCount):
     if stFrameInfo.enPixelType == 17301505:
         image = data.reshape((stFrameInfo.nHeight, stFrameInfo.nWidth))
-
         image_show(image=image, name=stFrameInfo.nHeight, num=receivedFrameCount)
     elif stFrameInfo.enPixelType == 17301514:
         data = data.reshape(stFrameInfo.nHeight, stFrameInfo.nWidth, -1)
@@ -513,7 +579,7 @@ def access_get_image(cam, active_way="getImagebuffer"):
                 image_control(data=data, stFrameInfo=stOutFrame.stFrameInfo, receivedFrameCount=receivedFrameCount)
             else:
                 print("no data[0x%x]" % ret)
-            i+=1
+            i += 1
             # close_and_destroy_device(cam)
             # nRet = cam.MV_CC_FreeImageBuffer(stOutFrame)
 
@@ -546,9 +612,12 @@ def access_get_image(cam, active_way="getImagebuffer"):
 winfun_ctype = WINFUNCTYPE
 stFrameInfo = POINTER(MV_FRAME_OUT_INFO_EX)
 pData = POINTER(c_ubyte)
+
 FrameInfoCallBack = winfun_ctype(None, pData, stFrameInfo, c_void_p)
 
 n = -1
+
+
 def image_callback(pData, pFrameInfo, pUser):
     global img_buff
     global n
@@ -559,11 +628,12 @@ def image_callback(pData, pFrameInfo, pUser):
         print("get one frame: Width[%d], Height[%d], nFrameNum[%d]" % (
             stFrameInfo.nWidth, stFrameInfo.nHeight, stFrameInfo.nFrameNum))
     if img_buff is None and stFrameInfo.enPixelType == 17301505:
-        n += 1 # 记录调用次数
+        n += 1  # 记录调用次数
         img_buff = (c_ubyte * stFrameInfo.nWidth * stFrameInfo.nHeight)()
         cdll.msvcrt.memcpy(byref(img_buff), pData, stFrameInfo.nWidth * stFrameInfo.nHeight)
         data = np.frombuffer(img_buff, count=int(stFrameInfo.nWidth * stFrameInfo.nHeight), dtype=np.uint8)
         image_control(data=data, stFrameInfo=stFrameInfo, receivedFrameCount=n)
+        logger.info('已采集{}张图片'.format(n))
         print('第{}张图片'.format(n))
         del img_buff
     elif img_buff is None and stFrameInfo.enPixelType == 17301514:
@@ -651,34 +721,37 @@ def haikang_sdk_main():
     # 枚举设备
     deviceList = enum_devices(device=0, device_way=False)
     # 判断不同类型设备
-    identify_different_devices(deviceList)
+    device_infos = identify_different_devices(deviceList)
     # 输入需要被连接的设备
     nConnectionNum = input_num_camera(deviceList)
-
+    global camera_dir_path
+    camera_dir_path = './Output'
     # 创建相机实例并创建句柄,(设置日志路径)
-    cam, stDeviceList = creat_camera(deviceList, nConnectionNum, log=False)
-    decide_divice_on_line(cam)
+    cam, stDeviceList, camera_dir_path = creat_camera(deviceList, nConnectionNum, device_infos, log=False,
+                                                      log_path=getcwd())
+    # 创建图片保存路径
+    if not os.path.exists(camera_dir_path):
+        os.mkdir(camera_dir_path)
+    print(camera_dir_path)
+    # decide_divice_on_line(cam)
     # 打开设备
     open_device(cam)
     # # 设置缓存节点个数
     set_image_Node_num(cam, Num=10)
     # # 设置取流策略
     # set_grab_strategy(cam, grabstrategy=2, outputqueuesize=10)
-    # print('初始值：', get_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate"))
-
     # 设置设备的一些参数
-
-    # set_Value(cam, param_type="float_value", node_name="AcquisitionFrameRate", node_value=5)  # 设置采集帧率
-    set_Value(cam, param_type="enum_value", node_name="AcquisitionMode", node_value=2)
-    set_Value(cam, param_type="enum_value", node_name="TriggerMode", node_value=1)
-    set_Value(cam, param_type="enum_value", node_name="TriggerSource", node_value=0)
-    set_Value(cam, param_type="enum_value", node_name="TriggerDelay", node_value=0)
-    set_Value(cam, param_type="enum_value", node_name="LineDebouncerTime", node_value=10)
-    set_Value(cam, param_type="enum_value", node_name="ExposureAuto", node_value=0)  # 设置关闭自动曝光
-    set_Value(cam, param_type="float_value", node_name="ExposureTime", node_value=9476)  # 设置爆光时间
-    # 获取设备的一些参数111111111111
-    get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionMode")
-    print('修改后AcquisitionMode参数为：', get_value)
+    xuelie_num = device_infos.get(str(nConnectionNum)).get('EquipmentSerialNumber')
+    with open('Config/HaiKan_profile.json', 'r', encoding='utf-8') as fp:
+        json_data = json.load(fp)
+        for node_param in json_data[xuelie_num]:
+            if node_param != '//':
+                tp = json_data[xuelie_num][node_param]['type']
+                value = json_data[xuelie_num][node_param]['value']
+                if node_param == 'ExposureAuto' and value != 0:
+                    set_Value(cam, param_type=tp, node_name=node_param, node_value=value)
+    # 获取设备的一些参数
+    # get_value = get_Value(cam, param_type="float_value", node_name="AcquisitionMode")
     # stdcall = input("回调方式取流显示请输入 0    主动取流方式显示请输入 1:")
     stdcall = 0
     if int(stdcall) == 0:

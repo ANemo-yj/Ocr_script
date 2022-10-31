@@ -1,0 +1,392 @@
+{
+
+  "00K42994168": {
+	 "//":"入库",
+    "AcquisitionMode": {
+      "//":"采集模式",
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "//":"多帧采集设置",
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "//":"触发模式：0软触发，1硬触发",
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "//":"触发源",
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "//":"沿信号 默认上升沿触发",
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 6000
+    },
+
+
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": false
+    },
+
+    "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "//":"锐度",
+      "type": "int_value",
+      "value": 0
+    }
+  },
+"00K42994163": {
+	 "//":"出库2",
+    "AcquisitionMode": {
+      "//":"采集模式",
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "//":"多帧采集设置",
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "//":"触发模式：0软触发，1硬触发",
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "//":"触发源",
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "//":"沿信号 默认上升沿触发",
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureAuto": {
+       "//":"曝光设置",
+      "type": "enum_value",
+      "value": 2
+    },
+
+
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": false
+    },
+
+		 "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "//":"锐度",
+      "type": "int_value",
+      "value": 70
+    }
+  },
+  "00K42994157":{
+    "//":"质检",
+    "AcquisitionMode": {
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 5000
+    },
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": true
+    },
+
+    "Gamma": {
+      "type": "float_value",
+      "value": 0.7
+    },
+		 "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "type": "int_value",
+      "value": 40
+    }
+  },
+
+  "00K38947288":{
+    "//":"返库",
+
+    "AcquisitionMode": {
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 5000
+    },
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": true
+    },
+    "Gamma": {
+      "type": "float_value",
+      "value": 0
+    },
+		 "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "type": "int_value",
+      "value": 0
+    }
+  },
+
+  "00K42994215": {
+    "//":"出库1",
+    "AcquisitionMode": {
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 6000
+    },
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": true
+    },
+    "Gamma": {
+      "type": "float_value",
+      "value": 0.3
+    },
+		 "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "type": "int_value",
+      "value": 0
+    }
+  },
+
+  "00K42994152": {
+    "//":"组盘",
+    "AcquisitionMode": {
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 3000
+    },
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": true
+    },
+    "Gamma": {
+      "type": "float_value",
+      "value": 0.7
+    },
+    "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "type": "int_value",
+      "value": 40
+    }
+  },
+
+  "00K42994156": {
+    "//":"出库3",
+    "AcquisitionMode": {
+      "type": "enum_value",
+      "value": 2
+    },
+
+    "AcquisitionBurstFrameCount": {
+      "type": "int_value",
+      "value": 1
+    },
+
+    "TriggerMode": {
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "TriggerSource": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "TriggerActivation":{
+      "type": "enum_value",
+      "value": 1
+    },
+
+    "ExposureAuto": {
+      "type": "enum_value",
+      "value": 0
+    },
+
+    "ExposureTime": {
+      "type": "float_value",
+      "value": 6000
+    },
+    "GammaEnable": {
+      "//":"伽马矫正使能",
+      "type": "bool_value",
+      "value": true
+    },
+    "Gamma": {
+      "type": "float_value",
+      "value": 0.7
+    },
+    "SharpnessEnable": {
+      "type": "bool_value",
+      "value": true
+    },
+    "Sharpness": {
+      "type": "int_value",
+      "value": 40
+    }
+  }
+}
